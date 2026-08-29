@@ -1,0 +1,23 @@
+CONTROLE DE ENTREGAS — como colocar no ar (pelo celular)
+
+Este é um site estático (PWA). O Vercel serve direto, sem build.
+
+PASSO A PASSO (Vercel + GitHub, tudo pelo navegador do celular):
+
+1) Descompacte este .zip. Você vai ter estes arquivos:
+   index.html, manifest.json, sw.js, icon-192.png, icon-512.png, apple-touch-icon.png
+
+2) No github.com (logado), toque em "+" > "New repository".
+   Dê um nome (ex: controle-entregas) e crie.
+
+3) Na página do repo, toque em "Add file" > "Upload files".
+   Selecione TODOS os arquivos acima (soltos, não a pasta) e faça commit.
+
+4) No vercel.com, "Add New..." > "Project" > importe esse repositório.
+   Framework Preset: deixe "Other". Toque em Deploy.
+
+5) O Vercel te dá uma URL (ex: controle-entregas.vercel.app).
+   Abra no celular do seu pai > menu do navegador > "Adicionar à tela inicial".
+   Pronto: vira um app, abre em tela cheia e funciona offline.
+
+Os dados ficam salvos no aparelho (localStorage). Não sincroniza entre celulares.
