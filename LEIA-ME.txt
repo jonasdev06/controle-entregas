@@ -4,8 +4,10 @@ Este é um site estático (PWA). O Vercel serve direto, sem build.
 
 PASSO A PASSO (Vercel + GitHub, tudo pelo navegador do celular):
 
-1) Descompacte este .zip. Você vai ter estes arquivos:
+1) Os arquivos do app são:
    index.html, manifest.json, sw.js, icon-192.png, icon-512.png, apple-touch-icon.png
+   (controle-entregas.jsx e CLAUDE.md são documentação/protótipo, não atrapalham
+   se subirem junto, mas não fazem parte do app.)
 
 2) No github.com (logado), toque em "+" > "New repository".
    Dê um nome (ex: controle-entregas) e crie.
@@ -20,4 +22,58 @@ PASSO A PASSO (Vercel + GitHub, tudo pelo navegador do celular):
    Abra no celular do seu pai > menu do navegador > "Adicionar à tela inicial".
    Pronto: vira um app, abre em tela cheia e funciona offline.
 
-Os dados ficam salvos no aparelho (localStorage). Não sincroniza entre celulares.
+
+COMO USAR
+
+- Botões verde/vermelho embaixo: lançar Entrada (ganho) ou Saída (gasto).
+- Tocar num lançamento da lista: EDITA aquele lançamento.
+- Tocar na lixeira: exclui, e aparece "Desfazer" por alguns segundos.
+- Engrenagem no topo (Ajustes): meta de ganho por dia, exportar e importar backup.
+- Aba "Mês": total do mês, dias trabalhados e de onde veio / onde foi o dinheiro.
+
+
+CONFIGURAR O SERVIDOR (2 passos, uma vez só, no painel do Supabase)
+
+Sem estes dois passos o app funciona normalmente, mas NÃO guarda cópia no
+servidor (e aparece uma bolinha vermelha na engrenagem).
+
+PASSO 1 — criar as tabelas
+  Supabase > SQL Editor > New query
+  Cole o conteúdo do arquivo supabase-schema.sql e clique em Run.
+
+PASSO 2 — ligar a conta automática
+  Supabase > Authentication > Sign In / Providers
+  Ache "Anonymous sign-ins" e ligue.
+  (Sem isso o app não consegue criar a conta do aparelho sozinho.)
+
+Conferido em 02/09/2026: a chave do projeto funciona, mas os dois passos
+acima ainda NÃO tinham sido feitos.
+
+
+COMO VER OS NÚMEROS DE LONGE
+
+Cada aparelho vira uma conta anônima própria, então o app no SEU celular não
+mostra os dados do celular do seu pai. Pra ver os números dele:
+
+  Supabase > Table Editor > dispositivos    (descubra o user_id do aparelho)
+  Supabase > SQL Editor                     (há consultas prontas comentadas
+                                             no fim do supabase-schema.sql)
+
+Dica de monitoramento: a coluna "visto_em" da tabela dispositivos só é
+atualizada quando a sincronização funciona. Se ela parar de avançar, é sinal
+de que algo travou.
+
+
+BACKUP — IMPORTANTE
+
+Com o servidor configurado, os lançamentos sobem sozinhos e ficam guardados
+mesmo se o celular quebrar. O backup manual abaixo continua valendo como
+segunda camada — e é o único jeito de levar os dados pra um aparelho novo,
+já que o aparelho novo cria uma conta diferente.
+
+Por isso: de vez em quando (uma vez por mês já ajuda), abra Ajustes >
+"Exportar backup" e guarde o arquivo .json em algum lugar seguro —
+mandar pra si mesmo no WhatsApp ou salvar no Google Drive já resolve.
+
+Pra restaurar num aparelho novo: Ajustes > "Importar backup" e escolha o arquivo.
+O import JUNTA com o que já existe: não apaga nada e não duplica lançamento repetido.
