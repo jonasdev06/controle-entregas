@@ -1,79 +1,63 @@
-CONTROLE DE ENTREGAS — como colocar no ar (pelo celular)
+CONTROLE DE ENTREGAS
 
-Este é um site estático (PWA). O Vercel serve direto, sem build.
+Site estático (PWA) hospedado no Vercel, ligado ao repositório do GitHub.
+Cada push na branch main dispara um deploy automático. Não há etapa de build.
 
-PASSO A PASSO (Vercel + GitHub, tudo pelo navegador do celular):
-
-1) Os arquivos do app são:
-   index.html, manifest.json, sw.js, icon-192.png, icon-512.png, apple-touch-icon.png
-   (controle-entregas.jsx e CLAUDE.md são documentação/protótipo, não atrapalham
-   se subirem junto, mas não fazem parte do app.)
-
-2) No github.com (logado), toque em "+" > "New repository".
-   Dê um nome (ex: controle-entregas) e crie.
-
-3) Na página do repo, toque em "Add file" > "Upload files".
-   Selecione TODOS os arquivos acima (soltos, não a pasta) e faça commit.
-
-4) No vercel.com, "Add New..." > "Project" > importe esse repositório.
-   Framework Preset: deixe "Other". Toque em Deploy.
-
-5) O Vercel te dá uma URL (ex: controle-entregas.vercel.app).
-   Abra no celular do seu pai > menu do navegador > "Adicionar à tela inicial".
-   Pronto: vira um app, abre em tela cheia e funciona offline.
+No ar em: https://controle-entregas-weld.vercel.app
 
 
-COMO USAR
+COMO USAR (o que o usuário vê)
 
 - Botões verde/vermelho embaixo: lançar Entrada (ganho) ou Saída (gasto).
 - Tocar num lançamento da lista: EDITA aquele lançamento.
 - Tocar na lixeira: exclui, e aparece "Desfazer" por alguns segundos.
-- Engrenagem no topo (Ajustes): meta de ganho por dia, exportar e importar backup.
-- Aba "Mês": total do mês, dias trabalhados e de onde veio / onde foi o dinheiro.
+- Engrenagem no topo: meta de ganho por dia. Só isso.
+- Aba "Mês": total do mês, dias trabalhados, e de onde veio / onde foi o dinheiro.
+
+Nada de backup, exportar arquivo ou botão de sincronizar. O app guarda tudo no
+servidor sozinho, sem pedir nada e sem mostrar nada.
 
 
-CONFIGURAR O SERVIDOR (2 passos, uma vez só, no painel do Supabase)
+COMO OS DADOS FICAM SEGUROS
 
-Sem estes dois passos o app funciona normalmente, mas NÃO guarda cópia no
-servidor (e aparece uma bolinha vermelha na engrenagem).
+Os lançamentos são salvos no celular (funciona sem internet) e sobem sozinhos
+para o Supabase quando há sinal. Sem internet, ficam numa fila e sobem depois.
+Ninguém precisa apertar nada.
 
-PASSO 1 — criar as tabelas
-  Supabase > SQL Editor > New query
-  Cole o conteúdo do arquivo supabase-schema.sql e clique em Run.
+Na primeira vez que o app abre numa versão nova, ele cria sozinho uma conta
+anônima para aquele aparelho e sobe todo o histórico que já estava no celular.
 
-PASSO 2 — ligar a conta automática
-  Supabase > Authentication > Sign In / Providers
-  Ache "Anonymous sign-ins" e ligue.
-  (Sem isso o app não consegue criar a conta do aparelho sozinho.)
 
-Conferido em 02/09/2026: a chave do projeto funciona, mas os dois passos
-acima ainda NÃO tinham sido feitos.
+CONFIGURAÇÃO DO SERVIDOR (já feita, registro para referência)
+
+1. Supabase > SQL Editor: rodar o supabase-schema.sql (tabelas + RLS).
+2. Supabase > Authentication > Sign In / Providers: ligar "Anonymous sign-ins"
+   e clicar em Save.
+
+Sem esses dois passos o app funciona normalmente, mas não guarda no servidor.
 
 
 COMO VER OS NÚMEROS DE LONGE
 
-Cada aparelho vira uma conta anônima própria, então o app no SEU celular não
-mostra os dados do celular do seu pai. Pra ver os números dele:
+Cada aparelho é uma conta anônima própria, então o app no seu celular não mostra
+os dados do celular do seu pai. Para ver os números dele:
 
-  Supabase > Table Editor > dispositivos    (descubra o user_id do aparelho)
-  Supabase > SQL Editor                     (há consultas prontas comentadas
-                                             no fim do supabase-schema.sql)
+  Supabase > Table Editor > dispositivos   (descubra o user_id do aparelho)
+  Supabase > SQL Editor                    (consultas prontas comentadas no fim
+                                            do supabase-schema.sql)
 
-Dica de monitoramento: a coluna "visto_em" da tabela dispositivos só é
-atualizada quando a sincronização funciona. Se ela parar de avançar, é sinal
-de que algo travou.
+Monitoramento: a coluna "visto_em" da tabela dispositivos só avança quando a
+sincronização funciona. Se ela parar de avançar, algo travou.
+
+Atenção: um celular novo cria uma conta nova e vazia. Os dados antigos continuam
+no servidor, mas hoje só dá para chegar neles pelo painel do Supabase.
 
 
-BACKUP — IMPORTANTE
+TESTES
 
-Com o servidor configurado, os lançamentos sobem sozinhos e ficam guardados
-mesmo se o celular quebrar. O backup manual abaixo continua valendo como
-segunda camada — e é o único jeito de levar os dados pra um aparelho novo,
-já que o aparelho novo cria uma conta diferente.
+  sh testes/rodar.sh
 
-Por isso: de vez em quando (uma vez por mês já ajuda), abra Ajustes >
-"Exportar backup" e guarde o arquivo .json em algum lugar seguro —
-mandar pra si mesmo no WhatsApp ou salvar no Google Drive já resolve.
-
-Pra restaurar num aparelho novo: Ajustes > "Importar backup" e escolha o arquivo.
-O import JUNTA com o que já existe: não apaga nada e não duplica lançamento repetido.
+Roda três suítes (lógica, telas com DOM simulado, sincronização com servidor
+falso). Há uma quarta suíte opcional que fala com o Supabase de verdade e cria
+uma conta de teste a cada execução — instruções no topo de
+testes/harness-servidor-real.js.

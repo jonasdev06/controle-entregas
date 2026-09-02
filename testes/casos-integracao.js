@@ -66,27 +66,5 @@ desfazer();
 ok("desfazer restaurou", ativos().length === antes && ativos().some(l => l.id === editado.id));
 ok("aviso sumiu", document.getElementById("toast").hidden === true);
 
-console.log("\nIMPORT DE BACKUP");
-const backup = { app:"controle-entregas", versao:1, config:{metaDiaria:250}, lancamentos:[
-  {id:"1755900000001-eee", tipo:"saida", valor:15, descricao:"Comida", data:"2026-08-30", hora:"19:00"}, // duplicado
-  {id:"novo-1", tipo:"entrada", valor:99, descricao:"Uber", data:"2026-08-15", hora:"08:00"},            // novo
-  {id:"lixo",  tipo:"???",     valor:10, descricao:"x",    data:"2026-08-15"}                            // inválido
-]};
-const qtdAntes = lancamentos.length;
-// simula o FileReader
-global.FileReader = class {
-  readAsText(){ this.result = JSON.stringify(backup); this.onload(); }
-};
-importarArquivo({ files:[{}], value:"" });
-ok("importou só o novo (1)", lancamentos.length === qtdAntes + 1, "qtd=" + lancamentos.length);
-ok("não duplicou o repetido", lancamentos.filter(l => l.id === "1755900000001-eee").length === 1);
-ok("descartou o inválido", !lancamentos.some(l => l.id === "lixo"));
-ok("meta veio junto", config.metaDiaria === 250);
-ok("persistiu no armazenamento", JSON.parse(__mem["lancamentos"]).length === lancamentos.length);
-
-console.log("\nEXPORT");
-exportar();
-ok("aviso de backup gerado", document.getElementById("toast").innerHTML.includes("Backup gerado"));
-
 console.log(falhas === 0 ? "\nTODOS OS TESTES DE INTEGRAÇÃO PASSARAM\n" : "\n" + falhas + " FALHA(S)\n");
 process.exit(falhas ? 1 : 0);

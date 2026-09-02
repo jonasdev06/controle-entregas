@@ -71,22 +71,11 @@ reescreve o `innerHTML`**:
 Atalhos de origem (entrada): iFood, 99, Uber, Lalamove, Particular.
 Atalhos de categoria (saída): Combustível, Comida, Manutenção, Outros.
 
-### Formato do arquivo de backup
+### Não existe backup manual, de propósito
 
-```json
-{
-  "app": "controle-entregas",
-  "versao": 1,
-  "exportado_em": "2026-09-02T13:00:00.000Z",
-  "config": { "metaDiaria": 200 },
-  "lancamentos": [ /* lançamentos, mesmo formato acima */ ]
-}
-```
-
-O import também aceita um array puro de lançamentos. Ele **mescla** (nunca substitui):
-descarta o que não bate com o formato (`normalizar()`), pula ids que já existem e
-concatena o resto. Isso torna o import seguro tanto pra restaurar num aparelho novo
-quanto pra juntar dois backups.
+Já houve export/import de `.json` em Ajustes. Foi **removido**: o dono do projeto
+não quer nenhuma tarefa manual para o usuário — quem garante que nada se perde é a
+sincronização automática. Não reintroduzir sem pedido explícito.
 
 ### Leitura do valor digitado (`parseValor`)
 
@@ -106,7 +95,8 @@ sendo mil duzentos e trinta e quatro e `"25.50"` vira 25,50. A folha ainda mostr
   preserva `data` e `hora` originais.
 - **Excluir com desfazer**: exclui na hora e mostra um aviso com "Desfazer" por 5s
   (em vez de um diálogo de confirmação, ruim no celular).
-- **Ajustes** (engrenagem no topo): meta de ganho diário, exportar e importar backup.
+- **Ajustes** (engrenagem no topo): só a meta de ganho diário. Nada de backup,
+  status de servidor ou botão de sincronizar — a sincronização é invisível.
 - Se o `localStorage` falhar ao salvar (cota cheia, aba anônima do Safari), o app
   **avisa em vermelho** em vez de perder dados em silêncio.
 
@@ -136,6 +126,9 @@ ao aparelho dele pra digitar um login, a autenticação precisou ser automática
 - **Gatilhos:** ao abrir, ao salvar/excluir, ao voltar pra tela
   (`visibilitychange`), ao voltar a internet (`online`) e a cada 5 min.
   Se algo é salvo *durante* uma sincronização, `syncPedido` faz rodar de novo.
+- **Sem interface nenhuma.** Sem status, sem botão "sincronizar agora", sem ícone
+  de alerta. O usuário não deve saber que existe servidor. Se falhar, tenta de novo
+  sozinho; a coluna `visto_em` de `dispositivos` é o canal de monitoramento remoto.
 - **Migração automática:** lançamentos antigos não tinham `atualizado_em`. O `load()`
   reconstrói o carimbo a partir do timestamp embutido no `id`, e marca tudo como
   pendente — é isso que faz o histórico antigo subir na primeira sincronização.
@@ -163,7 +156,9 @@ e só arrasta quem estava olhando "hoje" — quem foi ver um dia antigo fica lá
 1. **Painel web pro filho** — hoje só dá pra ver os números pelo Supabase. Uma
    página que faça login de verdade e leia a conta do aparelho resolveria.
    Depende de vincular a conta anônima a um e-mail (`PUT /auth/v1/user`), o que
-   exige acesso ao aparelho uma vez.
+   exige acesso ao aparelho uma vez. **Este é o único caminho de restauração para
+   um aparelho novo** — hoje um celular novo vira uma conta nova e vazia; os dados
+   antigos continuam no servidor, mas só acessíveis pelo painel do Supabase.
 2. **Ganho por hora** — primeiro e último lançamento do dia dão a janela.
 3. **Custo por km / combustível** — quanto do ganho o combustível comeu no mês.
 4. **Filtro por origem no mês** — tocar numa origem e ver só aqueles lançamentos.

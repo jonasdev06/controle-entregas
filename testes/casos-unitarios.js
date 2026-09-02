@@ -22,20 +22,6 @@ eq('""',           parseValor(""),           0);
 eq('"abc"',        parseValor("abc"),        0);
 eq('",50"',        parseValor(",50"),        0.5);
 
-console.log("\nnormalizar — import de backup");
-{
-  const n = normalizar({id:"a",tipo:"entrada",valor:10,descricao:"iFood",data:"2026-09-01",hora:"10:30"});
-  eq("campos do lancamento", {id:n.id,tipo:n.tipo,valor:n.valor,descricao:n.descricao,data:n.data,hora:n.hora},
-     {id:"a",tipo:"entrada",valor:10,descricao:"iFood",data:"2026-09-01",hora:"10:30"});
-  eq("import entra na fila de sincronizacao", [n.excluido, n.sincronizado, typeof n.atualizado_em],
-     [false, false, "string"]);
-}
-eq("tipo invalido",  normalizar({id:"a",tipo:"x",valor:10,data:"2026-09-01"}), null);
-eq("data invalida",  normalizar({id:"a",tipo:"saida",valor:10,data:"01/09/2026"}), null);
-eq("valor negativo", normalizar({id:"a",tipo:"saida",valor:-5,data:"2026-09-01"}), null);
-eq("nao-objeto",     normalizar("oi"), null);
-eq("hora ausente vira 00:00", normalizar({id:"a",tipo:"saida",valor:5,data:"2026-09-01"}).hora, "00:00");
-
 console.log("\nagrupar — resumo por origem");
 const amostra = [
   {tipo:"entrada",valor:100,descricao:"iFood"},
