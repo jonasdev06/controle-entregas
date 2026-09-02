@@ -86,7 +86,7 @@ sendo mil duzentos e trinta e quatro e `"25.50"` vira 25,50. A folha ainda mostr
 
 ## Funcionalidades atuais
 
-- Visão **Dia**: saldo do dia, total que entrou/saiu, barra da meta de ganho,
+- Visão **Dia**: saldo do dia, total que entrou/saiu, barra da meta (líquida),
   lista de lançamentos, navegação entre dias, adicionar/**editar**/excluir.
 - Visão **Mês**: saldo do mês, total entrou/saiu, dias trabalhados e média de saldo
   por dia, resumo **"De onde veio"** e **"Onde foi"** (% por origem/categoria),
@@ -95,8 +95,15 @@ sendo mil duzentos e trinta e quatro e `"25.50"` vira 25,50. A folha ainda mostr
   preserva `data` e `hora` originais.
 - **Excluir com desfazer**: exclui na hora e mostra um aviso com "Desfazer" por 5s
   (em vez de um diálogo de confirmação, ruim no celular).
-- **Ajustes** (engrenagem no topo): só a meta de ganho diário. Nada de backup,
-  status de servidor ou botão de sincronizar — a sincronização é invisível.
+- **Ajustes** (engrenagem no topo): só a meta diária. Nada de backup, status de
+  servidor, botão de sincronizar ou contadores — a sincronização é invisível.
+- **A meta é sobre o LÍQUIDO** (entrou − saiu), não sobre o bruto. Ela responde
+  "já posso parar hoje?", e quem gastou R$ 80 de gasolina precisa mesmo faturar
+  R$ 80 a mais pra levar pra casa o mesmo tanto. Já foi sobre o bruto e estava
+  errado. Não voltar atrás sem pedido explícito.
+- **Não colocar contador de "N lançamentos" na tela.** Já teve um em Ajustes com
+  o total de todos os dias, e foi lido como "os de hoje". Qualquer número na tela
+  precisa deixar óbvio a que período se refere.
 - Se o `localStorage` falhar ao salvar (cota cheia, aba anônima do Safari), o app
   **avisa em vermelho** em vez de perder dados em silêncio.
 

@@ -15,8 +15,10 @@ render();
 ok("card do dia com saldo 15,50", /R\$.?15,50/.test(app.innerHTML), app.innerHTML.slice(0,200));
 ok("mostra entrou 75,50", /R\$.?75,50/.test(app.innerHTML));
 ok("mostra saiu 60,00", /R\$.?60,00/.test(app.innerHTML));
-ok("barra de meta renderizada", app.innerHTML.includes("Meta de ganho do dia"));
-ok("meta: faltam 124,50", /Faltam R\$.?124,50/.test(app.innerHTML), app.innerHTML.match(/Faltam[^<]*/));
+ok("barra de meta renderizada", app.innerHTML.includes("Meta do dia (o que sobra)"));
+ok("meta usa o liquido: faltam 184,50 (200 - (75,50-60))", app.innerHTML.includes("Faltam R$"+" "+"184,50")
+   || app.innerHTML.includes("Faltam R$ 184,50"), app.innerHTML.match(/Faltam[^<]*/));
+ok("nao usa mais o bruto (nao mostra 124,50)", !app.innerHTML.includes("124,50"));
 ok("3 itens na lista do dia", (app.innerHTML.match(/class="item"/g)||[]).length === 3);
 ok("item clicável pra editar", app.innerHTML.includes("abrirEdicao("));
 ok("botões Entrada/Saída aparecem", app.innerHTML.includes(">Entrada<") && app.innerHTML.includes(">Saída<"));

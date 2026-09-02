@@ -689,10 +689,14 @@ function render(irAoTopo){
 
     var meta="";
     if(config.metaDiaria>0){
-      var pct = Math.min(100, Math.round(ent/config.metaDiaria*100));
-      var falta = config.metaDiaria - ent;
+      // A meta é sobre o LÍQUIDO (entrou menos saiu), não sobre o bruto. A pergunta
+      // que ela responde é "já posso parar hoje?" — e se ele gastou R$ 80 de gasolina
+      // hoje, precisa mesmo faturar R$ 80 a mais pra levar pra casa o mesmo tanto.
+      var liquido = ent - sai;
+      var pct = Math.max(0, Math.min(100, Math.round(liquido/config.metaDiaria*100)));
+      var falta = config.metaDiaria - liquido;
       meta='<div class="meta">'+
-        '<div class="metatop"><span>Meta de ganho do dia</span><span class="tnum">'+fmt(config.metaDiaria)+'</span></div>'+
+        '<div class="metatop"><span>Meta do dia (o que sobra)</span><span class="tnum">'+fmt(config.metaDiaria)+'</span></div>'+
         '<div class="bar"><i style="width:'+pct+'%"></i></div>'+
         '<p class="metasub'+(falta>0?"":" ok")+'">'+
           (falta>0 ? ("Faltam "+fmt(falta)+" · "+pct+"% da meta")
@@ -819,10 +823,8 @@ function htmlConfig(){
     '<div class="sheet" onclick="event.stopPropagation()">'+
       '<div class="sheet-head"><h2>Ajustes</h2>'+
         '<button class="xbtn" onclick="fecharConfig()" aria-label="Fechar">'+X+'</button></div>'+
-      '<p class="sheet-date" style="text-transform:none">'+ativos().length+' lançamento(s) guardados</p>'+
-
       '<p class="cfglbl">Meta de ganho diário</p>'+
-      '<p class="cfghint">Quanto você quer ganhar por dia (conta só as entradas). Deixe vazio pra não mostrar a meta.</p>'+
+      '<p class="cfghint">Quanto você quer que SOBRE por dia, já descontando os gastos. Deixe vazio pra não mostrar a meta.</p>'+
       '<div class="valbox n"><span class="rs">R$</span>'+
         '<input id="inpMeta" type="text" inputmode="decimal" placeholder="0,00" value="'+(m>0?esc(paraCampo(m)):"")+'" '+
         'oninput="onMeta(this)" onkeydown="if(event.key===\'Enter\')salvarMeta()"></div>'+
