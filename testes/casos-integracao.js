@@ -32,6 +32,53 @@ ok("resumo 'Onde foi'", app.innerHTML.includes("Onde foi"));
 ok("2 dias trabalhados (gasto-só não conta)", app.innerHTML.includes("2 dias trabalhados"), app.innerHTML.match(/\d+ dias? trabalhado[^<]*/));
 ok("sem botões de ação no mês", !app.innerHTML.includes('class="act g"'));
 
+console.log("\nABA SEMANA");
+// semente: 01/09 (ter) e 02/09 (qua) caem na semana de 31/08 a 06/09; o gasto de 30/08 é da anterior
+visao = "semana"; semanaAtual = "2026-08-31"; filtroGasto = "Todos"; barraSel = -1;
+render();
+ok("alternador tem Semana", app.innerHTML.includes("setVisao('semana')"));
+ok("mostra o intervalo da semana", app.innerHTML.includes("31 de agosto a 6 de setembro") || app.innerHTML.includes("31 ago a 6 set"));
+ok("saldo da semana 135,50 (195,50 - 60)", app.innerHTML.includes("135,50"));
+ok("gráfico com 7 dias", graficoAtual && graficoAtual.dados.length === 7, graficoAtual && graficoAtual.dados.length);
+ok("só a quarta tem barra (R$ 60)", (app.innerHTML.match(/class="gbar"/g)||[]).length === 1);
+ok("eixo de seg a dom", app.innerHTML.includes(">seg<") && app.innerHTML.includes(">dom<"));
+ok("total de gastos da semana 60,00", /gtotal">R\$.?60,00/.test(app.innerHTML));
+ok("média por dia trabalhado: 60 / 2 = 30,00", /Média de <b>R\$.?30,00<\/b> por dia trabalhado/.test(app.innerHTML));
+ok("o gasto de 30/08 ficou fora (é da semana anterior)", !app.innerHTML.includes("Comida"));
+ok("uma categoria só: sem atalhos de filtro", !app.innerHTML.includes('class="gchips"'));
+
+console.log("\nFILTRO POR CATEGORIA");
+lancamentos.push(carimbar({id:"1756700000000-f01", tipo:"saida", valor:20, descricao:"gasolina", data:"2026-09-01", hora:"08:00", excluido:false}));
+lancamentos.push(carimbar({id:"1756700000001-f02", tipo:"saida", valor:15, descricao:"Almoço",   data:"2026-09-02", hora:"12:30", excluido:false}));
+render();
+ok("atalhos aparecem com 2+ categorias", app.innerHTML.includes('class="gchips"'));
+ok("'gasolina' somou em Combustível (60+20 = 80)", /Combustível<\/span><span class="bval tnum">R\$.?80,00/.test(app.innerHTML));
+ok("total de todos os gastos 95,00", /gtotal">R\$.?95,00/.test(app.innerHTML));
+escolherFiltro("Combustível");
+ok("título vira 'Combustível na semana'", app.innerHTML.includes("Combustível na semana"));
+ok("total só de combustível 80,00", /gtotal">R\$.?80,00/.test(app.innerHTML));
+ok("atalho Combustível marcado", app.innerHTML.includes('class="gchip on" data-cat="Combustível"'));
+ok("2 barras (ter 20, qua 60)", (app.innerHTML.match(/class="gbar"/g)||[]).length === 2);
+
+console.log("\nTOCAR NUMA BARRA");
+selecionarBarra(2);   // quarta, 02/09
+ok("leitura mostra o valor do dia", document.getElementById("gleitura").innerHTML.includes("60,00"),
+   document.getElementById("gleitura").innerHTML);
+ok("e o dia", document.getElementById("gleitura").innerHTML.includes("2 de set"), document.getElementById("gleitura").innerHTML);
+selecionarBarra(-1);
+ok("soltar volta pra média", document.getElementById("gleitura").innerHTML.includes("por dia trabalhado"));
+
+console.log("\nGRÁFICO NO MÊS");
+visao = "mes"; mesAtual = "2026-09"; render();
+ok("setembro: 30 colunas", graficoAtual && graficoAtual.dados.length === 30, graficoAtual && graficoAtual.dados.length);
+ok("o filtro escolhido vale no mês também", app.innerHTML.includes("Combustível no mês"));
+filtroGasto = "Manutenção"; render();
+ok("categoria sem gasto no período cai pra Todos", app.innerHTML.includes("Gastos do mês"));
+filtroGasto = "Todos";
+mesAtual = "2026-07"; render();
+ok("mês sem gasto mostra aviso, sem gráfico", app.innerHTML.includes("Nenhum gasto nesse mês") && !app.innerHTML.includes('<svg id="grafico"'));
+mesAtual = "2026-09"; visao = "dia";
+
 console.log("\nFOLHA DE LANÇAMENTO");
 visao = "dia";
 abrirForm("entrada");

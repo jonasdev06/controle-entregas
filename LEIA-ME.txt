@@ -12,7 +12,8 @@ COMO USAR (o que o usuário vê)
 - Tocar num lançamento da lista: EDITA aquele lançamento.
 - Tocar na lixeira: exclui, e aparece "Desfazer" por alguns segundos.
 - Engrenagem no topo: meta de ganho por dia. Só isso.
-- Aba "Mês": total do mês, dias trabalhados, e de onde veio / onde foi o dinheiro.
+- Abas "Semana" e "Mês": saldo, gráfico de gastos por dia (toque em "Combustível"
+  pra ver só a gasolina; toque numa barra pra ver o dia), de onde veio / onde foi.
 
 Nada de backup, exportar arquivo ou botão de sincronizar. O app guarda tudo no
 servidor sozinho, sem pedir nada e sem mostrar nada.

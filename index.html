@@ -42,7 +42,7 @@
   .toggle-row{padding:24px 0 16px;display:flex;justify-content:space-between;align-items:center;}
   .spacer{width:40px;flex-shrink:0;}
   .toggle{background:#fff;border-radius:999px;padding:4px;box-shadow:0 1px 3px rgba(0,0,0,.06);display:inline-flex;}
-  .toggle button{padding:8px 24px;border-radius:999px;font-size:14px;font-weight:700;color:var(--muted2);transition:.15s;}
+  .toggle button{padding:8px 18px;border-radius:999px;font-size:14px;font-weight:700;color:var(--muted2);transition:.15s;}
   .toggle button.on{background:#1c1917;color:#fff;}
   .gear{width:40px;height:40px;flex-shrink:0;border-radius:999px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.06);
     display:flex;align-items:center;justify-content:center;color:var(--muted2);transition:.12s;}
@@ -77,6 +77,7 @@
     font-size:13px;font-weight:600;color:var(--muted2);margin-bottom:8px;}
   .bar{height:8px;background:var(--stone200);border-radius:999px;overflow:hidden;}
   .bar>i{display:block;height:100%;background:var(--em);border-radius:999px;transition:width .3s;}
+  .bar>i.r{background:var(--rd);}   /* barras de gasto: vermelho, como toda saída no app */
   .metasub{font-size:12px;color:var(--muted);margin:8px 0 0;}
   .metasub.ok{color:var(--em7);font-weight:600;}
 
@@ -85,6 +86,19 @@
   .bhead{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:14px;margin-bottom:6px;}
   .bname{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .bval{color:var(--muted2);font-size:13px;flex-shrink:0;}
+
+  /* gráfico de gastos por dia (abas Semana e Mês) */
+  .gchips{display:flex;gap:8px;overflow-x:auto;margin:12px -24px 0;padding:0 24px 2px;scrollbar-width:none;}
+  .gchips::-webkit-scrollbar{display:none;}
+  .gchip{flex-shrink:0;padding:6px 14px;border-radius:999px;font-size:13px;font-weight:600;background:var(--stone100);color:var(--muted2);transition:.12s;}
+  .gchip.on{background:#1c1917;color:#fff;}
+  .gtotal{font-size:30px;font-weight:800;letter-spacing:-.5px;margin:16px 0 0;line-height:1.1;}
+  .gleitura{font-size:13px;color:var(--muted2);margin:4px 0 14px;min-height:18px;}
+  .gleitura b{color:var(--ink);font-weight:700;}
+  .grafico{display:block;width:100%;height:auto;touch-action:pan-y;-webkit-user-select:none;user-select:none;cursor:pointer;outline:none;}
+  .grafico:focus-visible{outline:3px solid #a8a29e;outline-offset:4px;border-radius:8px;}
+  .grafico text{font-family:inherit;font-variant-numeric:tabular-nums;}
+  .gvazio{font-size:14px;color:var(--muted);margin:12px 0 0;}
 
   /* lista */
   .empty{text-align:center;padding:56px 24px;}
@@ -190,6 +204,10 @@ var config = loadConfig();
 var visao = "dia";
 var dataAtual = hojeISO();
 var mesAtual = hojeISO().slice(0,7);
+var semanaAtual = inicioSemana(hojeISO());   // segunda-feira da semana aberta na aba Semana
+var filtroGasto = "Todos";   // categoria escolhida no gráfico de gastos
+var barraSel = -1;           // barra tocada no gráfico (-1 = nenhuma)
+var graficoAtual = null;     // o que o gráfico na tela mostra, pro toque não precisar re-renderizar
 
 var form = null;            // null | 'entrada' | 'saida'  (folha de lançamento aberta)
 var editandoId = null;      // id do lançamento em edição (null = criando um novo)
@@ -292,6 +310,68 @@ function corSaldo(n){ return n>0?"pos":(n<0?"neg":"zero"); }
 function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
 function soma(lista,tipo){ return lista.reduce(function(s,l){ return s + (l.tipo===tipo ? l.valor : 0); },0); }
 
+// ---------- datas de período ----------
+function isoDe(d){ return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()); }
+function somaDias(iso, n){ var d=new Date(iso+"T12:00:00"); d.setDate(d.getDate()+n); return isoDe(d); }
+// Semana de segunda a domingo: é a semana de trabalho, e o domingo fecha a conta.
+function inicioSemana(iso){ var d=new Date(iso+"T12:00:00"); return somaDias(iso, -((d.getDay()+6)%7)); }
+function diasNoMes(ym){ var p=ym.split("-"); return new Date(Number(p[0]), Number(p[1]), 0).getDate(); }
+function diasDoIntervalo(ini, n){ var r=[]; for(var i=0;i<n;i++) r.push(somaDias(ini,i)); return r; }
+function nomeMes(iso){ return new Date(iso+"T12:00:00").toLocaleDateString("pt-BR",{month:"long"}); }
+function mesCurto(iso){ return new Date(iso+"T12:00:00").toLocaleDateString("pt-BR",{month:"short"}).replace(".",""); }
+function intervaloSemana(ini){
+  var fim = somaDias(ini, 6);
+  if(ini.slice(0,7) === fim.slice(0,7)) return numDia(ini)+" a "+numDia(fim)+" de "+nomeMes(fim);
+  return numDia(ini)+" de "+nomeMes(ini)+" a "+numDia(fim)+" de "+nomeMes(fim);
+}
+function rotuloSemana(ini){
+  var atual = inicioSemana(hojeISO());
+  if(ini === atual) return "Esta semana";
+  if(ini === somaDias(atual, -7)) return "Semana passada";
+  var fim = somaDias(ini, 6);
+  return ini.slice(0,7) === fim.slice(0,7)
+    ? numDia(ini)+" a "+numDia(fim)+" "+mesCurto(fim)
+    : numDia(ini)+" "+mesCurto(ini)+" a "+numDia(fim)+" "+mesCurto(fim);
+}
+
+// ---------- categorias de gasto ----------
+// Os gastos têm atalhos fixos, mas a descrição também aceita texto livre. Sem isto,
+// quem digitou "gasolina" em vez de tocar em "Combustível" sumiria do gráfico de
+// combustível — justamente o número que ele mais quer acompanhar.
+// (Sem "posto" na lista de propósito: casaria com "Imposto".)
+var SINONIMOS_GASTO = [
+  [/combust|gasolina|etanol|[aá]lcool|diesel|abastec/i, "Combustível"],
+  [/comida|almo[cç]o|janta|lanche|caf[eé]|marmita|refei[cç]/i, "Comida"],
+  [/manuten|mec[aâ]nic|[oó]leo|pneu|pe[cç]a|oficina|revis|freio|corrente/i, "Manutenção"]
+];
+function categoriaGasto(desc){
+  var d = String(desc||"").trim();
+  if(SAIDAS.indexOf(d) >= 0) return d;
+  for(var i=0;i<SINONIMOS_GASTO.length;i++){ if(SINONIMOS_GASTO[i][0].test(d)) return SINONIMOS_GASTO[i][1]; }
+  if(!d || d === "Gasto") return "Outros";
+  return d;   // descrição própria que não bate com nada ("Pedágio"): vira categoria dela mesma
+}
+// Uma barra por dia do período: quanto saiu naquele dia, na categoria escolhida.
+function dadosGastos(lista, dias, filtro){
+  var porDia = {};
+  lista.forEach(function(l){
+    if(l.tipo!=="saida") return;
+    if(filtro!=="Todos" && categoriaGasto(l.descricao)!==filtro) return;
+    porDia[l.data] = (porDia[l.data]||0) + l.valor;
+  });
+  return dias.map(function(iso){ return { data:iso, valor:porDia[iso]||0 }; });
+}
+// Topo da escala arredondado pra um número "limpo", com a metade também limpa,
+// porque ela vira a linha do meio: 60 -> 60, 65 -> 80, 130 -> 150.
+function tetoRedondo(v){
+  if(!(v > 0)) return 10;
+  var p = Math.pow(10, Math.floor(Math.log(v)/Math.LN10));
+  var passos = [1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10];
+  for(var i=0;i<passos.length;i++){ if(v <= passos[i]*p + 1e-9) return passos[i]*p; }
+  return 10*p;
+}
+function fmtCurto(v){ return Math.round(v)===v ? "R$ "+v.toLocaleString("pt-BR") : fmt(v); }
+
 // ícones svg
 var ARROW_L='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>';
 var ARROW_R='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>';
@@ -318,7 +398,7 @@ function esconderToast(){
 }
 
 // ---------- ações ----------
-function setVisao(v){ visao=v; fecharTudo(); render(true); }
+function setVisao(v){ visao=v; barraSel=-1; fecharTudo(); render(true); }
 function mudarDia(d){
   var x=new Date(dataAtual+"T12:00:00"); x.setDate(x.getDate()+d);
   dataAtual=x.getFullYear()+"-"+pad(x.getMonth()+1)+"-"+pad(x.getDate());
@@ -326,9 +406,11 @@ function mudarDia(d){
 }
 function mudarMes(d){
   var p=mesAtual.split("-"); var x=new Date(Number(p[0]),Number(p[1])-1+d,1);
-  mesAtual=x.getFullYear()+"-"+pad(x.getMonth()+1); render(true);
+  mesAtual=x.getFullYear()+"-"+pad(x.getMonth()+1); barraSel=-1; render(true);
 }
 function irParaDia(iso){ dataAtual=iso; visao="dia"; render(true); }
+function mudarSemana(d){ semanaAtual=somaDias(semanaAtual, 7*d); barraSel=-1; render(true); }
+function escolherFiltro(c){ filtroGasto=c; barraSel=-1; render(); }
 function fecharTudo(){ form=null; editandoId=null; configAberta=false; }
 
 function abrirForm(t){
@@ -644,24 +726,215 @@ function htmlCardSaldo(rotulo, ent, sai, extra){
 }
 
 // Quanto veio de cada origem / foi pra cada categoria, com barra proporcional.
+// Os gastos agrupam pela categoria (junta "gasolina" com "Combustível"), pra que
+// "Onde foi" e o gráfico de gastos contem sempre a mesma coisa.
 function agrupar(lista, tipo){
   var m = {};
-  lista.forEach(function(l){ if(l.tipo===tipo){ m[l.descricao] = (m[l.descricao]||0) + l.valor; } });
+  lista.forEach(function(l){
+    if(l.tipo!==tipo) return;
+    var k = tipo==="saida" ? categoriaGasto(l.descricao) : l.descricao;
+    m[k] = (m[k]||0) + l.valor;
+  });
   return Object.keys(m)
     .map(function(k){ return { nome:k, total:m[k] }; })
     .sort(function(a,b){ return b.total - a.total; });
 }
-function htmlResumo(titulo, itens, total){
+function htmlResumo(titulo, itens, total, cor){
   if(!itens.length) return "";
   var linhas = itens.map(function(i){
     var p = total>0 ? Math.round(i.total/total*100) : 0;
     return '<div>'+
       '<div class="bhead"><span class="bname">'+esc(i.nome)+'</span>'+
       '<span class="bval tnum">'+fmt(i.total)+' · '+p+'%</span></div>'+
-      '<div class="bar"><i style="width:'+p+'%"></i></div>'+
+      '<div class="bar"><i'+(cor?' class="'+cor+'"':'')+' style="width:'+p+'%"></i></div>'+
     '</div>';
   }).join("");
   return '<div class="card"><p class="lbl">'+titulo+'</p><div class="brk">'+linhas+'</div></div>';
+}
+
+// ---------- blocos das abas Semana e Mês ----------
+function resumoPorDia(lista){
+  var mapa={};
+  lista.forEach(function(l){ if(!mapa[l.data]) mapa[l.data]={entrada:0,saida:0}; mapa[l.data][l.tipo]+=l.valor; });
+  return Object.keys(mapa).map(function(k){
+    return {data:k,entrada:mapa[k].entrada,saida:mapa[k].saida,saldo:mapa[k].entrada-mapa[k].saida};
+  }).sort(function(a,b){return b.data.localeCompare(a.data);});
+}
+// Dia trabalhado = dia com ganho. Um domingo de folga em que ele só abasteceu
+// não conta, senão derrubaria a média.
+function diasTrabalhados(lista){
+  var d = {};
+  lista.forEach(function(l){ if(l.tipo==="entrada") d[l.data] = true; });
+  return Object.keys(d).length;
+}
+function htmlMediaDias(trabalhados, saldo){
+  return trabalhados>0
+    ? '<p class="media">'+trabalhados+(trabalhados===1?" dia trabalhado":" dias trabalhados")+
+      ' · média de '+fmt(saldo/trabalhados)+' de saldo por dia</p>'
+    : '';
+}
+function htmlListaDias(dias, vazio){
+  if(!dias.length) return '<div class="empty"><p class="a">'+vazio+'</p></div>';
+  return '<ul class="list">'+dias.map(function(d){
+    return '<li><button class="dayrow" onclick="irParaDia(\''+d.data+'\')">'+
+      '<span class="daybox"><span class="n tnum">'+numDia(d.data)+'</span><span class="w">'+semanaCurta(d.data)+'</span></span>'+
+      '<span class="flow"><span class="fin g tnum">+ '+semRS(d.entrada)+'</span><span class="fin r tnum">− '+semRS(d.saida)+'</span></span>'+
+      '<span class="right"><span class="s tnum '+corSaldo(d.saldo)+'">'+fmt(d.saldo)+'</span><span class="t">saldo</span></span>'+
+    '</button></li>';
+  }).join("")+'</ul>';
+}
+
+// ---------- gráfico de gastos ----------
+// Uma série só (quanto saiu por dia), então uma cor só e nenhuma legenda: o título
+// do card já diz o que está desenhado. Vermelho porque no app inteiro vermelho é saída.
+var COR_BARRA = "#dc2626", COR_APAGADA = "#d6d3d1", COR_GRADE = "#e7e5e4";
+var COR_TEXTO = "#78716c", COR_TEXTO_FRACO = "#a8a29e", COR_TINTA = "#1c1917";
+
+// Card de gastos: total do período, atalhos por categoria e uma barra por dia.
+function htmlGastos(lista, dias, periodo){
+  var semana = periodo==="semana";
+  var cats = agrupar(lista, "saida");
+  if(!cats.length){
+    return '<div class="card"><p class="lbl">Gastos '+(semana?"da semana":"do mês")+'</p>'+
+      '<p class="gvazio">Nenhum gasto '+(semana?"nessa semana":"nesse mês")+'.</p></div>';
+  }
+  // A categoria escolhida pode não existir neste período (nada de Manutenção nesta
+  // semana, por exemplo). Aí mostra Todos, mas guarda a escolha pra quando voltar.
+  var filtro = filtroGasto;
+  if(filtro!=="Todos" && !cats.some(function(c){ return c.nome===filtro; })) filtro = "Todos";
+
+  var dados = dadosGastos(lista, dias, filtro);
+  var total = dados.reduce(function(s,d){ return s+d.valor; }, 0);
+  var titulo = filtro==="Todos" ? ("Gastos "+(semana?"da semana":"do mês"))
+                                : (esc(filtro)+(semana?" na semana":" no mês"));
+  var chips = cats.length < 2 ? "" :
+    '<div class="gchips">'+["Todos"].concat(cats.map(function(c){ return c.nome; })).map(function(c){
+      return '<button class="gchip'+(c===filtro?" on":"")+'" data-cat="'+esc(c)+'" '+
+             'onclick="escolherFiltro(this.getAttribute(\'data-cat\'))">'+esc(c)+'</button>';
+    }).join("")+'</div>';
+
+  graficoAtual = { dados:dados, total:total, trabalhados:diasTrabalhados(lista), semana:semana };
+  return '<div class="card"><p class="lbl">'+titulo+'</p>'+chips+
+    '<p class="gtotal">'+fmt(total)+'</p>'+
+    '<p class="gleitura" id="gleitura" aria-live="polite">'+leituraGrafico(graficoAtual)+'</p>'+
+    htmlGrafico(graficoAtual)+
+  '</div>';
+}
+
+function larguraGrafico(){
+  var app = document.getElementById("app");
+  var w = app && app.clientWidth ? app.clientWidth : 0;
+  // #app tem 16px de respiro de cada lado e o card mais 24px: sobra o miolo do card.
+  return w > 0 ? Math.max(220, w - 80) : 320;
+}
+
+// Colunas finas (no máximo 24px), topo arredondado e base reta, sempre 2px de folga
+// entre elas, e grade em fio. O SVG é desenhado na largura exata do card, pra texto
+// e traço saírem nítidos em vez de esticados.
+function htmlGrafico(g){
+  var W = larguraGrafico();
+  var ESQ = 44, TOPO = 20, ALT = 120, EIXO = 22;   // margem dos valores, folga do rótulo, altura das barras, faixa do eixo
+  var H = TOPO + ALT + EIXO, base = TOPO + ALT;
+  var n = g.dados.length, slot = (W - ESQ) / n;
+  var larg = Math.max(2, Math.min(24, slot - 2));
+  var maxV = 0, iMax = -1;
+  g.dados.forEach(function(d,i){ if(d.valor > maxV){ maxV = d.valor; iMax = i; } });
+  var teto = tetoRedondo(maxV);
+  var hoje = hojeISO();
+  var r1 = function(v){ return Math.round(v*10)/10; };
+  g.W = W; g.esq = ESQ; g.slot = slot;
+  if(barraSel >= n) barraSel = -1;
+
+  var s = '<svg id="grafico" class="grafico" width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'" '+
+    'role="img" tabindex="0" aria-label="Gastos por dia, '+esc(fmt(g.total))+' no total. A lista de dias abaixo tem os valores." '+
+    'onpointerdown="tocarGrafico(event)" onkeydown="teclaGrafico(event)">';
+
+  // grade: topo e meio da escala, com o valor na margem da esquerda
+  [teto, teto/2].forEach(function(v){
+    var gy = r1(base - ALT*v/teto);
+    s += '<line x1="'+ESQ+'" x2="'+W+'" y1="'+gy+'" y2="'+gy+'" stroke="'+COR_GRADE+'" stroke-width="1"/>'+
+         '<text x="'+(ESQ-8)+'" y="'+(gy+4)+'" text-anchor="end" font-size="10" fill="'+COR_TEXTO+'">'+esc(fmtCurto(v))+'</text>';
+  });
+  s += '<line x1="'+ESQ+'" x2="'+W+'" y1="'+base+'" y2="'+base+'" stroke="'+COR_GRADE+'" stroke-width="1"/>';
+
+  g.dados.forEach(function(d,i){
+    var cx = ESQ + slot*i + slot/2;
+    if(d.valor > 0){
+      var h = Math.max(2, ALT*d.valor/teto);
+      var x = cx - larg/2, topo = base - h, rr = r1(Math.min(4, larg/2, h));
+      var cor = (barraSel < 0 || barraSel === i) ? COR_BARRA : COR_APAGADA;
+      s += '<path class="gbar" data-i="'+i+'" fill="'+cor+'" d="M'+r1(x)+','+base+
+        'V'+r1(topo+rr)+'A'+rr+','+rr+' 0 0 1 '+r1(x+rr)+','+r1(topo)+
+        'H'+r1(x+larg-rr)+'A'+rr+','+rr+' 0 0 1 '+r1(x+larg)+','+r1(topo+rr)+
+        'V'+base+'Z"/>';
+    }
+    // eixo: na semana, todos os dias; no mês, 1, 8, 15, 22 e 29
+    var num = numDia(d.data);
+    if(g.semana || num % 7 === 1){
+      var ehHoje = d.data === hoje, futuro = d.data > hoje;
+      s += '<text x="'+r1(cx)+'" y="'+(base+16)+'" text-anchor="middle" font-size="11"'+
+        (ehHoje ? ' font-weight="700"' : '')+
+        ' fill="'+(ehHoje ? COR_TINTA : (futuro ? COR_TEXTO_FRACO : COR_TEXTO))+'">'+
+        (g.semana ? semanaCurta(d.data) : num)+'</text>';
+    }
+  });
+
+  // O valor vai escrito só na barra mais alta. Os outros aparecem ao tocar e na lista
+  // de dias embaixo: número em cima de toda barra vira poluição e ninguém lê.
+  if(iMax >= 0){
+    var rot = fmtCurto(maxV), meia = rot.length*3.3;
+    var lx = Math.min(W - meia, Math.max(ESQ + meia, ESQ + slot*iMax + slot/2));
+    var ly = base - Math.max(2, ALT*maxV/teto) - 6;
+    s += '<text x="'+r1(lx)+'" y="'+r1(ly)+'" text-anchor="middle" font-size="11" font-weight="700" fill="'+COR_TINTA+'" stroke="#fff" stroke-width="3" stroke-linejoin="round" paint-order="stroke">'+esc(rot)+'</text>';
+  }
+  return s + '</svg>';
+}
+
+function leituraGrafico(g){
+  if(barraSel >= 0 && g.dados[barraSel]){
+    var d = g.dados[barraSel];
+    return '<b>'+fmt(d.valor)+'</b> · '+semanaCurta(d.data)+', '+numDia(d.data)+' de '+mesCurto(d.data);
+  }
+  // Divide pelos dias TRABALHADOS, igual à média do card de saldo, pra que os dois
+  // "por dia" da mesma tela queiram dizer a mesma coisa.
+  if(g.trabalhados > 0) return 'Média de <b>'+fmt(g.total/g.trabalhados)+'</b> por dia trabalhado';
+  return 'Toque numa barra pra ver o dia';
+}
+function ultimoIndiceValido(g){
+  var hoje = hojeISO(), u = -1;
+  g.dados.forEach(function(d,i){ if(d.data <= hoje) u = i; });
+  return u;
+}
+// O gráfico inteiro é a área de toque e acha a coluna mais perto do dedo. No mês as
+// colunas têm uns 9px: pequenas demais pra acertar uma por uma.
+function tocarGrafico(ev){
+  var g = graficoAtual; if(!g || !g.slot) return;
+  var caixa = ev.currentTarget.getBoundingClientRect();
+  var x = (ev.clientX - caixa.left) * (g.W / caixa.width) - g.esq;
+  if(x < 0) return;                                  // tocou na margem dos valores
+  var i = Math.min(g.dados.length-1, Math.floor(x / g.slot));
+  if(i > ultimoIndiceValido(g)) return;              // dia que ainda não chegou
+  selecionarBarra(i === barraSel ? -1 : i);          // tocar de novo na mesma solta
+}
+function teclaGrafico(ev){
+  var g = graficoAtual; if(!g) return;
+  var u = ultimoIndiceValido(g); if(u < 0) return;
+  if(ev.key === "ArrowRight"){ selecionarBarra(barraSel < 0 ? 0 : Math.min(u, barraSel+1)); ev.preventDefault(); }
+  else if(ev.key === "ArrowLeft"){ selecionarBarra(barraSel < 0 ? u : Math.max(0, barraSel-1)); ev.preventDefault(); }
+  else if(ev.key === "Escape"){ selecionarBarra(-1); }
+}
+// Destaca a barra escolhida e apaga as outras mexendo só nas cores. Re-renderizar a
+// tela a cada toque jogaria o SVG fora no meio do gesto.
+function selecionarBarra(i){
+  barraSel = i;
+  var g = graficoAtual; if(!g) return;
+  var barras = document.querySelectorAll("#grafico .gbar");
+  for(var k=0;k<barras.length;k++){
+    var idx = Number(barras[k].getAttribute("data-i"));
+    barras[k].setAttribute("fill", (barraSel < 0 || idx === barraSel) ? COR_BARRA : COR_APAGADA);
+  }
+  var el = document.getElementById("gleitura");
+  if(el) el.innerHTML = leituraGrafico(g);
 }
 
 // ---------- render ----------
@@ -672,8 +945,11 @@ function render(irAoTopo){
 
   html+='<div class="toggle-row"><span class="spacer"></span><div class="toggle">'+
     '<button class="'+(visao==="dia"?"on":"")+'" onclick="setVisao(\'dia\')">Dia</button>'+
+    '<button class="'+(visao==="semana"?"on":"")+'" onclick="setVisao(\'semana\')">Semana</button>'+
     '<button class="'+(visao==="mes"?"on":"")+'" onclick="setVisao(\'mes\')">Mês</button>'+
     '</div><button class="gear" onclick="abrirConfig()" aria-label="Ajustes">'+GEAR+'</button></div>';
+
+  graficoAtual = null;   // só Semana e Mês têm gráfico; htmlGastos() preenche de novo
 
   if(visao==="dia"){
     var doDia=ativos().filter(function(l){return l.data===dataAtual;})
@@ -723,21 +999,30 @@ function render(irAoTopo){
       });
       html+='</ul>';
     }
+  } else if(visao==="semana"){
+    var fimSem = somaDias(semanaAtual, 6);
+    var daSemana = ativos().filter(function(l){ return l.data >= semanaAtual && l.data <= fimSem; });
+    var entS=soma(daSemana,"entrada"), saiS=soma(daSemana,"saida");
+    var semanaDeHoje = inicioSemana(hojeISO());
+    var ehSemanaAtual = semanaAtual === semanaDeHoje;
+    var recente = ehSemanaAtual || semanaAtual === somaDias(semanaDeHoje, -7);
+
+    html+='<div class="nav">'+
+      '<button class="arrow" onclick="mudarSemana(-1)" aria-label="Semana anterior">'+ARROW_L+'</button>'+
+      '<div><p class="title">'+rotuloSemana(semanaAtual)+'</p>'+
+        '<p class="sub">'+(recente ? intervaloSemana(semanaAtual) : semanaAtual.slice(0,4))+'</p></div>'+
+      '<button class="arrow" onclick="mudarSemana(1)" '+(ehSemanaAtual?"disabled":"")+' aria-label="Próxima semana">'+ARROW_R+'</button>'+
+    '</div>';
+
+    html+=htmlCardSaldo("Saldo da semana", entS, saiS, htmlMediaDias(diasTrabalhados(daSemana), entS-saiS));
+    html+=htmlGastos(daSemana, diasDoIntervalo(semanaAtual, 7), "semana");
+    html+=htmlResumo("De onde veio", agrupar(daSemana,"entrada"), entS);
+    html+=htmlResumo("Onde foi", agrupar(daSemana,"saida"), saiS, "r");
+    html+=htmlListaDias(resumoPorDia(daSemana), "Nenhum lançamento nessa semana.");
   } else {
     var doMes=ativos().filter(function(l){return l.data.indexOf(mesAtual)===0;});
     var entM=soma(doMes,"entrada"), saiM=soma(doMes,"saida");
-    var saldoM=entM-saiM;
     var ehMesAtual=mesAtual===hojeISO().slice(0,7);
-
-    var mapa={};
-    doMes.forEach(function(l){ if(!mapa[l.data]) mapa[l.data]={entrada:0,saida:0}; mapa[l.data][l.tipo]+=l.valor; });
-    var dias=Object.keys(mapa).map(function(k){
-      return {data:k,entrada:mapa[k].entrada,saida:mapa[k].saida,saldo:mapa[k].entrada-mapa[k].saida};
-    }).sort(function(a,b){return b.data.localeCompare(a.data);});
-
-    // Dia trabalhado = dia com ganho. Antes, um domingo de folga em que ele só
-    // abasteceu contava como dia trabalhado e derrubava a média.
-    var trabalhados = dias.filter(function(d){ return d.entrada>0; }).length;
 
     html+='<div class="nav">'+
       '<button class="arrow" onclick="mudarMes(-1)" aria-label="Mês anterior">'+ARROW_L+'</button>'+
@@ -745,28 +1030,11 @@ function render(irAoTopo){
       '<button class="arrow" onclick="mudarMes(1)" '+(ehMesAtual?"disabled":"")+' aria-label="Próximo mês">'+ARROW_R+'</button>'+
     '</div>';
 
-    var extra = trabalhados>0
-      ? '<p class="media">'+trabalhados+(trabalhados===1?" dia trabalhado":" dias trabalhados")+
-        ' · média de '+fmt(saldoM/trabalhados)+' de saldo por dia</p>'
-      : '';
-    html+=htmlCardSaldo("Saldo do mês", entM, saiM, extra);
-
+    html+=htmlCardSaldo("Saldo do mês", entM, saiM, htmlMediaDias(diasTrabalhados(doMes), entM-saiM));
+    html+=htmlGastos(doMes, diasDoIntervalo(mesAtual+"-01", diasNoMes(mesAtual)), "mes");
     html+=htmlResumo("De onde veio", agrupar(doMes,"entrada"), entM);
-    html+=htmlResumo("Onde foi", agrupar(doMes,"saida"), saiM);
-
-    if(dias.length===0){
-      html+='<div class="empty"><p class="a">Nenhum lançamento nesse mês.</p></div>';
-    }else{
-      html+='<ul class="list">';
-      dias.forEach(function(d){
-        html+='<li><button class="dayrow" onclick="irParaDia(\''+d.data+'\')">'+
-          '<span class="daybox"><span class="n tnum">'+numDia(d.data)+'</span><span class="w">'+semanaCurta(d.data)+'</span></span>'+
-          '<span class="flow"><span class="fin g tnum">+ '+semRS(d.entrada)+'</span><span class="fin r tnum">− '+semRS(d.saida)+'</span></span>'+
-          '<span class="right"><span class="s tnum '+corSaldo(d.saldo)+'">'+fmt(d.saldo)+'</span><span class="t">saldo</span></span>'+
-        '</button></li>';
-      });
-      html+='</ul>';
-    }
+    html+=htmlResumo("Onde foi", agrupar(doMes,"saida"), saiM, "r");
+    html+=htmlListaDias(resumoPorDia(doMes), "Nenhum lançamento nesse mês.");
   }
 
   if(visao==="dia" && !form && !configAberta){
@@ -846,10 +1114,12 @@ function checarVirada(){
   if(agora === hojeConhecido) return;
   var estavaNoHoje = (dataAtual === hojeConhecido);
   var estavaNoMes  = (mesAtual === hojeConhecido.slice(0,7));
+  var estavaNaSemana = (semanaAtual === inicioSemana(hojeConhecido));
   hojeConhecido = agora;
   // Só arrasta quem estava olhando "hoje". Quem foi ver um dia antigo fica lá.
   if(estavaNoHoje) dataAtual = agora;
   if(estavaNoMes)  mesAtual = agora.slice(0,7);
+  if(estavaNaSemana) semanaAtual = inicioSemana(agora);
   render();
 }
 
@@ -861,6 +1131,12 @@ if(typeof document.addEventListener === "function"){
 }
 window.addEventListener("focus", aoVoltarPraTela);
 window.addEventListener("online", function(){ sincronizar(); });
+// Girar a tela ou mudar o tamanho da janela muda a largura do gráfico.
+var timerResize = null;
+window.addEventListener("resize", function(){
+  clearTimeout(timerResize);
+  timerResize = setTimeout(function(){ if(visao !== "dia") render(); }, 150);
+});
 if(typeof setInterval === "function"){
   setInterval(checarVirada, 60000);        // caso o app fique aberto na virada
   setInterval(sincronizar, 5 * 60000);     // rede de segurança pro que ficou na fila

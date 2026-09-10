@@ -91,6 +91,9 @@ sendo mil duzentos e trinta e quatro e `"25.50"` vira 25,50. A folha ainda mostr
 - Visão **Mês**: saldo do mês, total entrou/saiu, dias trabalhados e média de saldo
   por dia, resumo **"De onde veio"** e **"Onde foi"** (% por origem/categoria),
   e a lista de cada dia (toca no dia para abrir o detalhe).
+- Visão **Semana** (segunda a domingo): saldo da semana, gráfico de gastos por dia
+  com filtro por categoria, "De onde veio", "Onde foi" e a lista dos dias.
+- **Gráfico de gastos** também no Mês, com uma barra por dia. Ver seção própria.
 - **Editar lançamento**: toca no lançamento na lista; a folha abre preenchida e
   preserva `data` e `hora` originais.
 - **Excluir com desfazer**: exclui na hora e mostra um aviso com "Desfazer" por 5s
@@ -106,6 +109,32 @@ sendo mil duzentos e trinta e quatro e `"25.50"` vira 25,50. A folha ainda mostr
   precisa deixar óbvio a que período se refere.
 - Se o `localStorage` falhar ao salvar (cota cheia, aba anônima do Safari), o app
   **avisa em vermelho** em vez de perder dados em silêncio.
+
+## Abas Semana e Mês: gráfico de gastos
+
+- **A semana vai de segunda a domingo** (`inicioSemana`). O domingo fecha a conta.
+- **Card "Gastos"**: total do período, atalhos por categoria (só aparecem quando o
+  período tem 2+ categorias) e **uma barra por dia**. Tocar em qualquer ponto do
+  gráfico seleciona o dia mais próximo, porque no mês as colunas têm ~9px, pequenas
+  demais pra acertar uma a uma. A barra tocada fica vermelha e as outras cinza.
+- **A barra mostra o que ele PAGOU naquele dia, não o que consumiu.** O dia de encher
+  o tanque tem barra alta e os seguintes ficam zerados. Isso foi discutido: consumo
+  real por dia exigiria km, e o dono descartou km. Semana e mês fecham certo.
+- **"Média por dia trabalhado"** divide pelos dias com ganho, a mesma regra da média
+  do card de saldo, pra que "por dia" signifique a mesma coisa na tela toda.
+- **`categoriaGasto()`** junta texto livre com os atalhos ("gasolina" e "etanol" →
+  Combustível, "almoço" → Comida, "troca de óleo" → Manutenção). O "Onde foi" usa a
+  mesma função, então os dois cards sempre batem. Descrição que não casa com nada
+  vira categoria própria ("Pedágio"). Cuidado ao ampliar a lista: "posto" ficou de
+  fora porque casaria com "Imposto".
+- **Regras do gráfico** (diretrizes de visualização): série única, uma cor, nenhuma
+  legenda; barras de no máximo 24px, topo arredondado e 2px de folga; grade em fio;
+  valor escrito só na barra mais alta, com contorno branco pra não brigar com a
+  grade; a lista de dias embaixo é a "tabela" com todos os valores. O SVG é
+  desenhado na largura exata do card (`larguraGrafico`) e redesenhado no `resize`.
+- **Tocar na barra não chama `render()`.** `selecionarBarra()` só troca as cores e
+  a leitura, pelo mesmo motivo do `modalAtual`: não reconstruir o DOM no meio do gesto.
+- Barras de gasto (gráfico e "Onde foi") são vermelhas, como toda saída no app.
 
 ## Sincronização (Supabase)
 
@@ -167,10 +196,17 @@ e só arrasta quem estava olhando "hoje" — quem foi ver um dia antigo fica lá
    um aparelho novo** — hoje um celular novo vira uma conta nova e vazia; os dados
    antigos continuam no servidor, mas só acessíveis pelo painel do Supabase.
 2. **Ganho por hora** — primeiro e último lançamento do dia dão a janela.
-3. **Custo por km / combustível** — quanto do ganho o combustível comeu no mês.
+3. **Quanto o combustível comeu** — % do que entrou no período (sem km: km foi descartado).
 4. **Filtro por origem no mês** — tocar numa origem e ver só aqueles lançamentos.
 5. **Limpeza dos excluídos** — hoje eles ficam pra sempre. Só vira problema com
    muitos milhares de lançamentos.
+
+## Decidido NÃO fazer
+
+- **GPS / trajeto do dia.** Site (PWA) não recebe localização em segundo plano, e na
+  rua quem fica na frente é o app do iFood: o trajeto sairia cheio de buracos. Só
+  daria virando app de loja (Play Store/App Store). Decidido em 2026-09-10.
+- **Km rodados e controle de revisão.** Descartados pelo dono em 2026-09-10.
 
 ## Como rodar/testar localmente
 
@@ -185,6 +221,13 @@ python -m http.server 8000
 Ao testar mudanças, force a atualização do service worker no DevTools
 (Application > Service Workers > Update / Unregister), senão você pode ver a
 versão antiga em cache.
+
+Pra olhar o layout sem celular, o Chrome headless serve (`--screenshot`), com um
+porém: ele tem largura mínima de janela (~500px) e desenha a página mais larga que
+o pedido, cortando a direita da foto. Pra ver em 360/390px de verdade, coloque o app
+num `<iframe>` com a largura exata dentro de uma janela maior. E desligue a
+sincronização na cópia de teste (`SUPABASE_URL = ""`), senão cada foto cria uma
+conta anônima no Supabase.
 
 ## Deploy
 
