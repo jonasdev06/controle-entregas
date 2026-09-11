@@ -93,6 +93,21 @@ guardarDesde("1970-01-01T00:00:00.000Z");
 await sincronizar(); await assentar();
 ok("versão mais nova do servidor venceu", lancamentos.filter(l => l.id === alvo.id)[0].valor === 999);
 
+console.log("\nCRÉDITO DA LALAMOVE VIAJA PRO SERVIDOR");
+dataAtual = hojeISO();
+abrirForm("entrada"); setDescricao("Lalamove"); formValor = "70"; salvar();
+await assentar();
+const c = lancamentos[0];
+const noServ = S.linhas.get("user-1|" + c.id);
+ok("subiu com credito = true", noServ && noServ.credito === true, noServ);
+ok("e sem data de saque", noServ && noServ.sacado_em === null, noServ && noServ.sacado_em);
+sacarCarteira(); await assentar();
+ok("o saque também sobe", S.linhas.get("user-1|" + c.id).sacado_em === hojeISO(), S.linhas.get("user-1|" + c.id).sacado_em);
+lancamentos = lancamentos.filter(l => l.id !== c.id); guardarDesde("1970-01-01T00:00:00.000Z");
+await sincronizar(); await assentar();
+const volta = lancamentos.filter(l => l.id === c.id)[0];
+ok("volta do servidor como crédito sacado", volta && volta.credito === true && volta.sacado_em === hojeISO(), volta);
+
 console.log("\nVIRADA DA MEIA-NOITE");
 const realHoje = hojeISO;
 dataAtual = "2026-09-02"; mesAtual = "2026-09"; hojeConhecido = "2026-09-02";

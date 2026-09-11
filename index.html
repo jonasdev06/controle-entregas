@@ -169,6 +169,17 @@
   .chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;}
   .chip{padding:8px 16px;border-radius:999px;font-size:14px;font-weight:600;background:var(--stone100);color:var(--muted2);transition:.12s;}
   .chip.on.g{background:var(--em);color:#fff;} .chip.on.r{background:var(--rd);color:#fff;}
+  .forma{margin:-4px 0 16px;}
+  .forma p{font-size:13px;font-weight:600;color:var(--muted2);margin:0 0 8px;}
+  .forma .chips{margin-bottom:0;}
+  .forma p.aviso{font-weight:500;margin:0;}
+
+  /* carteira do Lalamove */
+  .cart{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:8px;}
+  .cart .v{font-size:30px;font-weight:800;letter-spacing:-.5px;margin:0;line-height:1.1;}
+  .cart .s{font-size:12px;color:var(--muted);margin:6px 0 0;line-height:1.4;}
+  .sacar{flex-shrink:0;background:#1c1917;color:#fff;font-weight:700;font-size:15px;padding:12px 18px;border-radius:14px;transition:.12s;}
+  .sacar:active{transform:scale(.97);}
   .descinput{width:100%;background:var(--stone100);border:none;border-radius:16px;padding:12px 16px;font-size:16px;outline:none;margin-bottom:16px;}
   .descinput::placeholder{color:var(--muted);}
   .savebtn{width:100%;color:#fff;font-weight:700;font-size:18px;padding:16px;border-radius:16px;transition:.12s;}
@@ -214,6 +225,8 @@ var editandoId = null;      // id do lançamento em edição (null = criando um 
 var formValor = "";
 var formDescricao = "";
 var formData = null;        // data do lançamento sendo criado/editado
+var formCredito = true;          // Lalamove: pago em crédito (fica na carteira do app)?
+var formCreditoTravado = false;  // crédito que já foi sacado não muda mais de forma
 var configAberta = false;
 
 // Chave do que já está montado em #modal. Sem isso, qualquer render() remontaria
@@ -221,6 +234,7 @@ var configAberta = false;
 var modalAtual = "";
 
 var ultimoExcluido = null;  // guarda a última exclusão pro "Desfazer"
+var ultimoSaque = null;     // ids das corridas do último "Saquei", pro "Desfazer"
 var toastTimer = null;
 
 var SAIDAS = ["Combustível","Comida","Manutenção","Outros"];
@@ -372,6 +386,19 @@ function tetoRedondo(v){
 }
 function fmtCurto(v){ return Math.round(v)===v ? "R$ "+v.toLocaleString("pt-BR") : fmt(v); }
 
+// ---------- carteira do Lalamove ----------
+// Corrida da Lalamove paga em crédito conta como ganho no dia da corrida (o trabalho
+// foi ali), mas o dinheiro fica na carteira do app até ele sacar, no domingo ou de
+// 15 em 15 dias. "Saquei" só marca essas corridas como sacadas: o saque NUNCA vira
+// entrada nova, senão o mesmo dinheiro seria contado duas vezes.
+function ehLalamove(desc){ return /lalamove/i.test(String(desc||"")); }
+function naCarteira(l){ return l.tipo==="entrada" && l.credito===true && !l.sacado_em; }
+function carteira(){ return ativos().filter(naCarteira); }
+function subCredito(l){
+  if(l.tipo!=="entrada" || l.credito!==true) return "";
+  return l.sacado_em ? " · crédito, já sacado" : " · na carteira";
+}
+
 // ícones svg
 var ARROW_L='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>';
 var ARROW_R='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>';
@@ -415,6 +442,7 @@ function fecharTudo(){ form=null; editandoId=null; configAberta=false; }
 
 function abrirForm(t){
   form=t; editandoId=null; formValor=""; formDescricao=""; formData=dataAtual;
+  formCredito=true; formCreditoTravado=false;   // crédito já vem marcado: é a maioria na Lalamove
   render(); focarValor();
 }
 function abrirEdicao(id){
@@ -422,6 +450,7 @@ function abrirEdicao(id){
   for(var i=0;i<lancamentos.length;i++){ if(lancamentos[i].id===id){ l=lancamentos[i]; break; } }
   if(!l) return;
   form=l.tipo; editandoId=l.id; formValor=paraCampo(l.valor); formDescricao=l.descricao; formData=l.data;
+  formCredito=l.credito===true; formCreditoTravado=!!l.sacado_em;
   render(); focarValor();
 }
 function focarValor(){
@@ -444,10 +473,22 @@ function setDescricao(c){
 function onDesc(el){ formDescricao=el.value; pintarChips(); }
 function pintarChips(){
   var g = form==="entrada";
-  var els = document.querySelectorAll("#modal .chip");
+  var els = document.querySelectorAll("#chipsOrigem .chip");
   for(var i=0;i<els.length;i++){
     var on = els[i].getAttribute("data-val") === formDescricao;
     els[i].className = "chip" + (on ? (" on "+(g?"g":"r")) : "");
+  }
+  pintarForma();
+}
+// "Crédito ou pix?" só aparece quando a origem é a Lalamove.
+function setCredito(v){ formCredito = !!v; pintarForma(); }
+function pintarForma(){
+  var bloco = document.getElementById("formaPag");
+  if(bloco) bloco.hidden = !(form==="entrada" && ehLalamove(formDescricao));
+  var els = document.querySelectorAll("#formaPag .chip");
+  for(var i=0;i<els.length;i++){
+    var on = (els[i].getAttribute("data-credito")==="1") === formCredito;
+    els[i].className = "chip" + (on ? " on g" : "");
   }
 }
 function onValor(el){
@@ -462,11 +503,15 @@ function onValor(el){
 function salvar(){
   var v=parseValor(formValor); if(v<=0) return;
   var desc=(formDescricao||"").trim() || (form==="entrada"?"Entrega":"Gasto");
+  // Só corrida da Lalamove pode ser crédito. Crédito já sacado não muda de forma.
+  var credito = form==="entrada" && ehLalamove(desc) && formCredito;
   if(editandoId){
     var alvo=editandoId;
     lancamentos = lancamentos.map(function(l){
       if(l.id!==alvo) return l;
-      return carimbar({ id:l.id, tipo:form, valor:v, descricao:desc, data:l.data, hora:l.hora, excluido:false });
+      var cred = formCreditoTravado ? l.credito===true : credito;
+      return carimbar({ id:l.id, tipo:form, valor:v, descricao:desc, data:l.data, hora:l.hora, excluido:false,
+                        credito:cred, sacado_em: cred ? (l.sacado_em||null) : null });
     });
   }else{
     var agora=new Date();
@@ -475,7 +520,7 @@ function salvar(){
       tipo:form, valor:v, descricao:desc,
       data:formData||dataAtual,
       hora:agora.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}),
-      excluido:false
+      excluido:false, credito:credito, sacado_em:null
     }));
   }
   save(); form=null; editandoId=null; render(); sincronizar();
@@ -499,6 +544,25 @@ function desfazer(){
     if(lancamentos[i].id===ultimoExcluido){ lancamentos[i].excluido=false; carimbar(lancamentos[i]); break; }
   }
   ultimoExcluido = null;
+  save(); esconderToast(); render(); sincronizar();
+}
+
+// "Saquei": zera a carteira. Não cria entrada, porque o dinheiro já contou no dia
+// de cada corrida.
+function sacarCarteira(){
+  var itens = carteira(); if(!itens.length) return;
+  var total = itens.reduce(function(s,l){ return s+l.valor; }, 0);
+  var hoje = hojeISO();
+  itens.forEach(function(l){ l.sacado_em = hoje; carimbar(l); });
+  ultimoSaque = itens.map(function(l){ return l.id; });
+  save(); render(); sincronizar();
+  mostrarToast("Saque de "+fmt(total)+" marcado. A carteira zerou.", '<button onclick="desfazerSaque()">Desfazer</button>');
+}
+function desfazerSaque(){
+  if(!ultimoSaque) return;
+  var ids = {}; ultimoSaque.forEach(function(id){ ids[id] = true; });
+  lancamentos.forEach(function(l){ if(ids[l.id]){ l.sacado_em = null; carimbar(l); } });
+  ultimoSaque = null;
   save(); esconderToast(); render(); sincronizar();
 }
 
@@ -637,12 +701,14 @@ function api(caminho, opcoes, jaRenovou){
 
 function paraServidor(l){
   return { user_id:sessao.user_id, id:l.id, tipo:l.tipo, valor:l.valor, descricao:l.descricao,
-           data:l.data, hora:l.hora, excluido:!!l.excluido, atualizado_em:l.atualizado_em };
+           data:l.data, hora:l.hora, excluido:!!l.excluido, atualizado_em:l.atualizado_em,
+           credito:l.credito===true, sacado_em:l.sacado_em||null };
 }
 function doServidor(r){
   return { id:String(r.id), tipo:r.tipo, valor:Number(r.valor), descricao:String(r.descricao||""),
            data:String(r.data).slice(0,10), hora:String(r.hora||"00:00"),
-           excluido:!!r.excluido, atualizado_em:r.atualizado_em, sincronizado:true };
+           excluido:!!r.excluido, atualizado_em:r.atualizado_em, sincronizado:true,
+           credito:r.credito===true, sacado_em:r.sacado_em ? String(r.sacado_em).slice(0,10) : null };
 }
 
 // Puxa ANTES de empurrar: assim, se o servidor tem uma versão mais nova de um
@@ -937,6 +1003,34 @@ function selecionarBarra(i){
   if(el) el.innerHTML = leituraGrafico(g);
 }
 
+// Card da carteira do Lalamove, só na tela de hoje. Some quando está zerada.
+function htmlCarteira(){
+  var itens = carteira();
+  if(!itens.length) return "";
+  var total = itens.reduce(function(s,l){ return s+l.valor; }, 0);
+  var desde = itens.reduce(function(m,l){ return (!m || l.data < m) ? l.data : m; }, "");
+  return '<div class="card"><p class="lbl">Carteira do Lalamove</p>'+
+    '<div class="cart"><div>'+
+      '<p class="v">'+fmt(total)+'</p>'+
+      '<p class="s">'+itens.length+(itens.length===1?" corrida":" corridas")+' em crédito esperando saque, desde '+
+        semanaCurta(desde)+', '+numDia(desde)+' de '+mesCurto(desde)+'</p>'+
+    '</div><button class="sacar" onclick="sacarCarteira()">Saquei</button></div></div>';
+}
+
+// "Como foi pago?" da Lalamove. Fica sempre no HTML da folha e só aparece ou some,
+// porque trocar de atalho não pode remontar a folha (o teclado fecharia).
+function htmlFormaPag(g){
+  if(!g) return "";
+  var esconde = ehLalamove(formDescricao) ? "" : " hidden";
+  if(formCreditoTravado){
+    return '<div class="forma" id="formaPag"'+esconde+'><p class="aviso">Crédito já sacado da carteira.</p></div>';
+  }
+  return '<div class="forma" id="formaPag"'+esconde+'><p>Como foi pago?</p><div class="chips">'+
+    '<button class="chip'+(formCredito?" on g":"")+'" data-credito="1" onclick="setCredito(true)">Crédito (carteira)</button>'+
+    '<button class="chip'+(!formCredito?" on g":"")+'" data-credito="0" onclick="setCredito(false)">Pix ou dinheiro</button>'+
+  '</div></div>';
+}
+
 // ---------- render ----------
 function render(irAoTopo){
   var app = document.getElementById("app");
@@ -980,6 +1074,7 @@ function render(irAoTopo){
         '</p></div>';
     }
     html+=htmlCardSaldo(ehHoje?"Saldo de hoje":"Saldo do dia", ent, sai, meta);
+    if(ehHoje) html+=htmlCarteira();   // saldo da carteira é de agora, não do dia olhado
 
     if(doDia.length===0){
       html+='<div class="empty"><p class="a">Nenhum lançamento'+(ehHoje?" hoje":" nesse dia")+' ainda.</p>'+
@@ -991,7 +1086,7 @@ function render(irAoTopo){
         html+='<li class="item">'+
           '<button class="itemmain" onclick="abrirEdicao(\''+l.id+'\')" aria-label="Editar lançamento">'+
             '<span class="dot '+(g?"g":"r")+'">'+(g?UP:DOWN)+'</span>'+
-            '<span class="mid"><span class="desc">'+esc(l.descricao)+'</span><span class="hora">'+esc(l.hora)+'</span></span>'+
+            '<span class="mid"><span class="desc">'+esc(l.descricao)+'</span><span class="hora">'+esc(l.hora)+subCredito(l)+'</span></span>'+
             '<span class="amt tnum '+(g?"g":"r")+'">'+(g?"+":"−")+semRS(l.valor)+'</span>'+
           '</button>'+
           '<button class="del" onclick="excluir(\''+l.id+'\')" aria-label="Excluir">'+TRASH+'</button>'+
@@ -1078,7 +1173,8 @@ function htmlLancamento(){
         '<input id="inpValor" type="text" inputmode="decimal" placeholder="0,00" value="'+esc(formValor)+'" '+
         'oninput="onValor(this)" onkeydown="if(event.key===\'Enter\')salvar()"></div>'+
       '<p class="valhint" id="valHint">'+(v>0?("= "+fmt(v)):"")+'</p>'+
-      '<div class="chips">'+chips+'</div>'+
+      '<div class="chips" id="chipsOrigem">'+chips+'</div>'+
+      htmlFormaPag(g)+
       '<input id="inpDesc" class="descinput" type="text" placeholder="'+(g?"Descrição (opcional)":"O que foi? (opcional)")+'" '+
         'value="'+esc(formDescricao)+'" oninput="onDesc(this)" onkeydown="if(event.key===\'Enter\')salvar()">'+
       '<button id="btnSalvar" class="savebtn '+(g?"g":"r")+'" onclick="salvar()" '+(v<=0?"disabled":"")+'>'+acao+'</button>'+

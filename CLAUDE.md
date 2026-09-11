@@ -71,6 +71,10 @@ reescreve o `innerHTML`**:
 Atalhos de origem (entrada): iFood, 99, Uber, Lalamove, Particular.
 Atalhos de categoria (saída): Combustível, Comida, Manutenção, Outros.
 
+Campos da Carteira do Lalamove (só em entrada da Lalamove): `credito` (true = pago
+em crédito, fica na carteira do app) e `sacado_em` (`YYYY-MM-DD` do "Saquei", ou
+null enquanto está na carteira).
+
 ### Não existe backup manual, de propósito
 
 Já houve export/import de `.json` em Ajustes. Foi **removido**: o dono do projeto
@@ -94,6 +98,8 @@ sendo mil duzentos e trinta e quatro e `"25.50"` vira 25,50. A folha ainda mostr
 - Visão **Semana** (segunda a domingo): saldo da semana, gráfico de gastos por dia
   com filtro por categoria, "De onde veio", "Onde foi" e a lista dos dias.
 - **Gráfico de gastos** também no Mês, com uma barra por dia. Ver seção própria.
+- **Carteira do Lalamove**: corrida em crédito conta no dia, e um card mostra o que
+  ainda não foi sacado. Ver seção própria.
 - **Editar lançamento**: toca no lançamento na lista; a folha abre preenchida e
   preserva `data` e `hora` originais.
 - **Excluir com desfazer**: exclui na hora e mostra um aviso com "Desfazer" por 5s
@@ -135,6 +141,32 @@ sendo mil duzentos e trinta e quatro e `"25.50"` vira 25,50. A folha ainda mostr
 - **Tocar na barra não chama `render()`.** `selecionarBarra()` só troca as cores e
   a leitura, pelo mesmo motivo do `modalAtual`: não reconstruir o DOM no meio do gesto.
 - Barras de gasto (gráfico e "Onde foi") são vermelhas, como toda saída no app.
+
+## Carteira do Lalamove
+
+Na Lalamove a maioria das corridas é paga em crédito: o valor fica na carteira do
+app, e ele saca no domingo ou de 15 em 15 dias. (A 99 cai na hora.)
+
+- **O crédito conta como ganho no dia da corrida**, igual a qualquer entrada. O
+  trabalho foi feito ali, e a meta, a semana e o mês precisam refletir isso. Contar
+  só no saque foi discutido e descartado: a meta mandaria ele rodar à toa num dia de
+  muita Lalamove, e o saque inflaria o domingo.
+- **"Saquei" nunca cria entrada.** Só preenche `sacado_em` nas corridas que estão na
+  carteira. O dinheiro já tinha sido contado, e lançar o saque de novo seria dupla
+  contagem.
+- Ao lançar Lalamove, a folha pergunta "Crédito" ou "Pix ou dinheiro". Crédito já
+  vem marcado, porque é a maioria. O bloco fica sempre no HTML e só aparece ou some
+  (`pintarForma`), pelo mesmo motivo do `modalAtual`.
+- O card "Carteira do Lalamove" só aparece na tela de **hoje**, porque o saldo é de
+  agora e não do dia olhado, e some quando zera. Crédito já sacado não muda mais de
+  forma na edição.
+- **Colunas `credito` e `sacado_em` no Supabase.** Qualquer campo novo no lançamento
+  precisa da coluna criada ANTES do deploy: o upsert manda todos os campos, e uma
+  coluna que não existe derruba a sincronização.
+- A carteira começa vazia: corridas lançadas antes desta função não têm `credito`.
+  Dá pra abrir uma e marcar "Crédito" na edição.
+- Taxa de saque: aguardando o pai confirmar se existe. Se existir, "Saquei" passa a
+  perguntar quanto caiu e lança a diferença como gasto "Taxa de saque".
 
 ## Sincronização (Supabase)
 

@@ -14,6 +14,9 @@ COMO USAR (o que o usuário vê)
 - Engrenagem no topo: meta de ganho por dia. Só isso.
 - Abas "Semana" e "Mês": saldo, gráfico de gastos por dia (toque em "Combustível"
   pra ver só a gasolina; toque numa barra pra ver o dia), de onde veio / onde foi.
+- Lalamove: ao lançar, escolha "Crédito" ou "Pix ou dinheiro". O crédito conta no
+  dia da corrida e aparece no card "Carteira do Lalamove". Quando sacar, toque em
+  "Saquei": a carteira zera e nada é lançado de novo.
 
 Nada de backup, exportar arquivo ou botão de sincronizar. O app guarda tudo no
 servidor sozinho, sem pedir nada e sem mostrar nada.

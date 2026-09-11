@@ -32,6 +32,12 @@ create table if not exists public.lancamentos (
   primary key (user_id, id)
 );
 
+-- Carteira do Lalamove (2026-09): a corrida foi paga em crédito (fica na carteira
+-- do app) e em que dia foi sacada. O ganho conta no dia da corrida; o saque só zera
+-- a carteira e nunca vira lançamento novo.
+alter table public.lancamentos add column if not exists credito   boolean not null default false;
+alter table public.lancamentos add column if not exists sacado_em date;
+
 -- O sync sempre pergunta "o que mudou depois de X?" — este índice serve exatamente
 -- essa consulta.
 create index if not exists lancamentos_user_atualizado_idx

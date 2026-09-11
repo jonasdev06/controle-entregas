@@ -115,5 +115,53 @@ desfazer();
 ok("desfazer restaurou", ativos().length === antes && ativos().some(l => l.id === editado.id));
 ok("aviso sumiu", document.getElementById("toast").hidden === true);
 
+console.log("\nCARTEIRA DO LALAMOVE");
+dataAtual = hojeISO(); visao = "dia";
+abrirForm("entrada");
+ok("'Como foi pago?' começa escondido", modal.innerHTML.includes('id="formaPag" hidden'));
+setDescricao("Lalamove");
+ok("aparece ao escolher Lalamove", document.getElementById("formaPag").hidden === false);
+ok("crédito vem marcado", formCredito === true);
+setDescricao("iFood");
+ok("some ao trocar pra iFood", document.getElementById("formaPag").hidden === true);
+setDescricao("Lalamove");
+formValor = "80"; salvar();
+const cred = lancamentos[0];
+ok("corrida salva como crédito", cred.credito === true && !cred.sacado_em, JSON.stringify(cred));
+render();
+ok("conta como entrada do dia (Entrou 80,00)", /Entrou<\/p><p class="val tnum">R\$.?80,00/.test(app.innerHTML), app.innerHTML.match(/Entrou<\/p><p class="val tnum">[^<]*/));
+ok("card da carteira aparece hoje com 80,00", app.innerHTML.includes("Carteira do Lalamove") && /class="v">R\$.?80,00/.test(app.innerHTML));
+ok("na lista, marcada 'na carteira'", app.innerHTML.includes("· na carteira"));
+abrirForm("entrada"); setDescricao("Lalamove"); setCredito(false); formValor = "30"; salvar();
+ok("pix/dinheiro não vai pra carteira", lancamentos[0].credito === false && carteira().length === 1);
+render();
+ok("Entrou soma os dois (110,00)", /Entrou<\/p><p class="val tnum">R\$.?110,00/.test(app.innerHTML));
+
+console.log("\nSAQUEI");
+sacarCarteira();
+ok("carteira zerou", carteira().length === 0);
+ok("corrida marcada como sacada hoje", cred.sacado_em === hojeISO(), cred.sacado_em);
+ok("NÃO criou entrada nova (Entrou continua 110,00)", /Entrou<\/p><p class="val tnum">R\$.?110,00/.test(app.innerHTML));
+ok("card da carteira sumiu", !app.innerHTML.includes("Carteira do Lalamove"));
+ok("aviso com Desfazer", document.getElementById("toast").innerHTML.includes("desfazerSaque()"));
+desfazerSaque();
+ok("desfazer devolve pra carteira", carteira().length === 1 && !cred.sacado_em);
+sacarCarteira();
+
+console.log("\nEDITAR CRÉDITO JÁ SACADO");
+abrirEdicao(cred.id);
+ok("folha avisa que já foi sacado", modal.innerHTML.includes("Crédito já sacado"));
+formValor = "85"; salvar();
+const ed = lancamentos.filter(l => l.id === cred.id)[0];
+ok("valor mudou e continua crédito sacado", ed.valor === 85 && ed.credito === true && ed.sacado_em === hojeISO(), JSON.stringify(ed));
+
+console.log("\nCARTEIRA SÓ NA TELA DE HOJE");
+abrirForm("entrada"); setDescricao("Lalamove"); formValor = "40"; salvar();
+dataAtual = somaDias(hojeISO(), -1); render();
+ok("ontem: sem card da carteira", !app.innerHTML.includes("Carteira do Lalamove"));
+dataAtual = hojeISO(); render();
+ok("hoje: card de volta", app.innerHTML.includes("Carteira do Lalamove"));
+dataAtual = "2026-09-02";
+
 console.log(falhas === 0 ? "\nTODOS OS TESTES DE INTEGRAÇÃO PASSARAM\n" : "\n" + falhas + " FALHA(S)\n");
 process.exit(falhas ? 1 : 0);

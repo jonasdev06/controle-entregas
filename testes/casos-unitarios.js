@@ -65,5 +65,15 @@ eq("7 -> 8", tetoRedondo(7), 8);
 eq("sem gasto -> 10", tetoRedondo(0), 10);
 eq("rótulo curto sem centavos", fmtCurto(60), "R$ 60");
 
+console.log("\ncarteira do Lalamove");
+eq("reconhece Lalamove", ehLalamove("Lalamove"), true);
+eq("em minúsculas também", ehLalamove("corrida lalamove"), true);
+eq("iFood não é", ehLalamove("iFood"), false);
+eq("crédito na carteira", naCarteira({tipo:"entrada", credito:true, sacado_em:null}), true);
+eq("crédito sacado sai da carteira", naCarteira({tipo:"entrada", credito:true, sacado_em:"2026-09-06"}), false);
+eq("pix não entra na carteira", naCarteira({tipo:"entrada", credito:false}), false);
+eq("lista mostra 'na carteira'", subCredito({tipo:"entrada", credito:true}), " · na carteira");
+eq("lista mostra 'já sacado'", subCredito({tipo:"entrada", credito:true, sacado_em:"2026-09-06"}), " · crédito, já sacado");
+
 console.log(falhas === 0 ? "\nTODOS OS TESTES PASSARAM\n" : "\n" + falhas + " TESTE(S) FALHARAM\n");
 process.exit(falhas ? 1 : 0);
